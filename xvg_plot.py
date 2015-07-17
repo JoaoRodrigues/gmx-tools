@@ -17,13 +17,6 @@ from __future__ import print_function
 __author__ = 'Joao Rodrigues'
 __email__ = 'j.p.g.l.m.rodrigues@gmail.com'
 
-##
-# Color settings
-# For colormap choices see: matplotlib.org/examples/color/colormaps_reference.html
-_plt_bg_color = 'lightgray'
-_plt_colormap = 'Paired'
-##
-
 import os
 import re
 import shlex
@@ -79,6 +72,14 @@ def parse_xvg(fname):
                 num_data.append(map(float, line.split()))
     
     num_data = zip(*num_data)
+    
+    n_labels = len(metadata['labels']['series'])
+    n_series = len(num_data[1:])
+    if n_labels != n_series:
+        print('[!] Some series are not labelled. DO NO TRUST THE PLOT LABELS')
+        for missing in range(n_series - n_labels):
+            metadata['labels']['series'].append('Missing')
+    
     return metadata, num_data
 
 def running_average(data, metadata, window=10):
@@ -97,7 +98,8 @@ def running_average(data, metadata, window=10):
 
     return metadata, data
 
-def plot_data(data, metadata, window=1, interactive=True, outfile=None):
+def plot_data(data, metadata, window=1, interactive=True, outfile=None, 
+              colormap='Set1', bg_color='lightgray'):
     """
     Plotting function.
     """
@@ -107,11 +109,14 @@ def plot_data(data, metadata, window=1, interactive=True, outfile=None):
     f = plt.figure()
     ax = plt.gca()
     
-    color_map = getattr(plt.cm, _plt_colormap)
+    color_map = getattr(plt.cm, colormap)
     color_list = color_map(np.linspace(0, 1, n_series))
-    
+
     for i, series in enumerate(data[1:]):
-        label = metadata['labels']['series'][i]
+        try:
+            label = metadata['labels']['series'][i]
+        except IndexError as e:
+            label = ''
         
         # Adjust x-axis for running average series
         if label.endswith('(Av)'):
@@ -126,12 +131,12 @@ def plot_data(data, metadata, window=1, interactive=True, outfile=None):
     ax.set_ylabel(metadata['labels'].get('yaxis', ''))
     ax.set_title(metadata.get('title', ''))
     
-    ax.set_axis_bgcolor(_plt_bg_color)
+    ax.set_axis_bgcolor(bg_color)
     ax.grid('on')
     
     legend = ax.legend()
     frame = legend.get_frame()
-    frame.set_facecolor(_plt_bg_color)
+    frame.set_facecolor(bg_color)
     
     if outfile:
         plt.savefig(outfile)
@@ -151,7 +156,7 @@ if __name__ == '__main__':
 
     ap.add_argument('xvg_f', type=str, help='XVG input file', metavar='XVG input file')
 
-    io_group = ap.add_argument_group('Output Options')
+    io_group = ap.add_mutually_exclusive_group(required=True)
     io_group.add_argument('-o', '--output', type=str, help='PDF output file')
     io_group.add_argument('-i', '--interactive', action='store_true', 
                     help='Launches an interactive matplotlib session')
@@ -162,6 +167,16 @@ if __name__ == '__main__':
     ana_group.add_argument('-w', '--window', type=int, default=10, 
                     help='Window size for the running average calculation [Default: 10]')
     
+    ot_group = ap.add_argument_group('Other Options')
+    ot_group.add_argument('-c', '--colormap', default='Set1',
+                          help='Range of colors used for each series in the plot. For a list of all\
+                                available colormaps refer to \
+                                matplotlib.org/examples/color/colormaps_reference.html')
+
+    ot_group.add_argument('-b', '--background-color', default='lightgray',
+                          help='Background color used in the plot. For a list of all available \
+                                colors refer to \
+                                matplotlib.org/examples/color/named_colors.html')
     cmd = ap.parse_args()
     
     metadata, data = parse_xvg(cmd.xvg_f)
@@ -175,5 +190,6 @@ if __name__ == '__main__':
 
     plot_data(data, metadata, 
               window=cmd.window, 
-              interactive=cmd.interactive, outfile=cmd.output)
+              interactive=cmd.interactive, outfile=cmd.output,
+              colormap=cmd.colormap, bg_color=cmd.background_color)
     
