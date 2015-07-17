@@ -33,7 +33,7 @@ except ImportError as e:
 
 ##      
 
-def parse_xvg(fname):
+def parse_xvg(fname, sel_columns='all'):
     """Parses XVG file legends and data"""
     
     _ignored = set(('legend', 'view'))
@@ -72,13 +72,18 @@ def parse_xvg(fname):
                 num_data.append(map(float, line.split()))
     
     num_data = zip(*num_data)
-    
+
+    # Column selection if asked
+    if sel_columns != 'all':
+        sel_columns = map(int, sel_columns)
+        x_axis = num_data[0]
+        num_data = [x_axis] + [num_data[col] for col in sel_columns]
+        metadata['labels']['series'] = [metadata['labels']['series'][col] for col in sel_columns]
+
     n_labels = len(metadata['labels']['series'])
     n_series = len(num_data[1:])
     if n_labels != n_series:
         print('[!] Some series are not labelled. DO NO TRUST THE PLOT LABELS')
-        for missing in range(n_series - n_labels):
-            metadata['labels']['series'].append('Missing')
     
     return metadata, num_data
 
@@ -162,6 +167,8 @@ if __name__ == '__main__':
                     help='Launches an interactive matplotlib session')
 
     ana_group = ap.add_argument_group('Data Analysis')
+    ana_group.add_argument('-s', '--selection', type=str, default='all', nargs='+',
+                    help='Selects particular data series from xvg file.')
     ana_group.add_argument('-a', '--average', action='store_true', 
                     help='Smoothes each series using a running average')
     ana_group.add_argument('-w', '--window', type=int, default=10, 
@@ -179,7 +186,7 @@ if __name__ == '__main__':
                                 matplotlib.org/examples/color/named_colors.html')
     cmd = ap.parse_args()
     
-    metadata, data = parse_xvg(cmd.xvg_f)
+    metadata, data = parse_xvg(cmd.xvg_f, cmd.selection)
     n_series = len(data[1:])
     n_elements = sum(map(len, data[1:]))
     print('[+] Read {0} series of data ({1} elements)'.format(n_series, n_elements))
