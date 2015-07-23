@@ -12,7 +12,7 @@ Requires:
     * numpy
 """
 
-from __future__ import print_function
+from __future__ import print_function, division
 
 __author__ = 'Joao Rodrigues'
 __email__ = 'j.p.g.l.m.rodrigues@gmail.com'
@@ -73,17 +73,16 @@ def parse_xvg(fname, sel_columns='all'):
     
     num_data = zip(*num_data)
 
+    if not metadata['labels']['series']:
+        for series in range(len(num_data) - 1):
+            metadata['labels']['series'].append('')
+
     # Column selection if asked
     if sel_columns != 'all':
         sel_columns = map(int, sel_columns)
         x_axis = num_data[0]
         num_data = [x_axis] + [num_data[col] for col in sel_columns]
-        metadata['labels']['series'] = [metadata['labels']['series'][col] for col in sel_columns]
-
-    n_labels = len(metadata['labels']['series'])
-    n_series = len(num_data[1:])
-    if n_labels != n_series:
-        print('[!] Some series are not labelled. DO NO TRUST THE PLOT LABELS')
+        metadata['labels']['series'] = [metadata['labels']['series'][col - 1] for col in sel_columns]
     
     return metadata, num_data
 
@@ -118,14 +117,16 @@ def plot_data(data, metadata, window=1, interactive=True, outfile=None,
     color_list = color_map(np.linspace(0, 1, n_series))
 
     for i, series in enumerate(data[1:]):
-        try:
-            label = metadata['labels']['series'][i]
-        except IndexError as e:
-            label = ''
+
+        label = metadata['labels']['series'][i]
         
         # Adjust x-axis for running average series
         if label.endswith('(Av)'):
-            x_data = data[0][window - 1:]
+            x_step = (data[0][1] - data[0][0])
+            x_window = (window * x_step) / 2
+            x_start = data[0][0] + x_window - x_step
+            x_end = data[0][-1] - x_window + x_step
+            x_data = np.arange(x_start, x_end, x_step)
         else:
             x_data = data[0]
         
@@ -139,9 +140,13 @@ def plot_data(data, metadata, window=1, interactive=True, outfile=None,
     ax.set_axis_bgcolor(bg_color)
     ax.grid('on')
     
-    legend = ax.legend()
-    frame = legend.get_frame()
-    frame.set_facecolor(bg_color)
+    try:
+        legend = ax.legend()
+        frame = legend.get_frame()
+        frame.set_facecolor(bg_color)
+    except AttributeError as e:
+        # No legend, likely because no labels
+        pass
     
     if outfile:
         plt.savefig(outfile)
