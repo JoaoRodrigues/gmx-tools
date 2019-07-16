@@ -56,11 +56,11 @@ def parse_xpm(fname):
                     metadata[t_name.strip(':')] = tokens[1]
                 
                 elif t_name == 'x-axis:':
-                    x_values = map(int, tokens[1:-1]) # last */
+                    x_values = map(float, tokens[1:-1]) # last */
                     num_data[0].extend(x_values)
 
                 elif t_name == 'y-axis:':
-                    y_values = map(int, tokens[1:-1]) # last */
+                    y_values = map(float, tokens[1:-1]) # last */
                     num_data[1].extend(y_values)
 
             elif line.startswith('"'):
@@ -122,7 +122,7 @@ def plot_data(data, metadata, interactive=True, outfile=None,
     ax.set_xlabel(metadata.get('x-label', ''))
     ax.set_ylabel(metadata.get('y-label', ''))
     ax.set_title(metadata.get('title', ''))
-    ax.set_axis_bgcolor(bg_color)
+    ax.set_facecolor(bg_color)
     ax.grid('on')
 
     cbar = plt.colorbar()
